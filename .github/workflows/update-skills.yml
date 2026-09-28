@@ -1,0 +1,40 @@
+name: Auto-update Skills
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # daily at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check skill updates
+        run: |
+          # Compare local skills against Hermes upstream
+          UPSTREAM="https://raw.githubusercontent.com/NousResearch/hermes-agent/main"
+          CHANGED=0
+
+          for skill_dir in ~/.hermes/skills/*/; do
+            skill=$(basename "$skill_dir")
+            local_md="$skill_dir/SKILL.md"
+            if [ -f "$local_md" ]; then
+              remote_md=$(curl -s "$UPSTREAM/skills/$skill/SKILL.md" 2>/dev/null)
+              if [ -n "$remote_md" ] && [ "$(cat "$local_md")" != "$remote_md" ]; then
+                echo "UPDATE: $skill"
+                CHANGED=1
+              fi
+            fi
+          done
+
+          if [ "$CHANGED" = "1" ]; then
+            echo "::warning::Skills have updates available"
+          else
+            echo "All skills up to date"
+          fi
+
+      - name: Report status
+        run: |
+          echo "Skill update check complete"
